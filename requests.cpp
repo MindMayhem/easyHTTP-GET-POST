@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
-
+#include <windows.h> 
+#include <wininet.h>
 #pragma comment (lib, "wsock32.lib")
 
 #include <stdlib.h>
@@ -32,59 +33,64 @@ string HTTP_POST(string host, string path, string data) {
     ss << data.length();
 
     std::stringstream request2;
+    if (InternetCheckConnection("http://www.google.com", FLAG_ICC_FORCE_CONNECTION, 0)) {
+        request2 << "POST " << path << " HTTP/1.1" << endl;
+        request2 << "User-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)" << endl;
+        //request2 << "" << endl;
+        request2 << "Host: " << host << endl;
+        request2 << "Content-Length: " << data.length() << endl;
 
-    request2 << "POST " << path << " HTTP/1.1" << endl;
-    request2 << "User-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)" << endl;
-    //request2 << "" << endl;
-    request2 << "Host: " << host << endl;
-    request2 << "Content-Length: " << data.length() << endl;
+        request2 << "Content-Type: application/x-www-form-urlencoded" << endl;
+        request2 << "Accept-Language: en-au" << endl;
+        request2 << endl;
+        request2 << data;
+        request = request2.str();
+        //init winsock
+        if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0)
+            die_with_wserror("WSAStartup() failed");
+        //open socket
+        if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            die_with_wserror("socket() failed");
 
-    request2 << "Content-Type: application/x-www-form-urlencoded" << endl;
-    request2 << "Accept-Language: en-au" << endl;
-    request2 << endl;
-    request2 << data;
-    request = request2.str();
-    //init winsock
-    if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0)
-        die_with_wserror("WSAStartup() failed");
-    //open socket
-    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-        die_with_wserror("socket() failed");
+        //connect
+        memset(&serveraddr, 0, sizeof(serveraddr));
+        serveraddr.sin_family = AF_INET;
+        serveraddr.sin_addr.s_addr = *((unsigned long*)ipadd->h_addr);
+        serveraddr.sin_port = htons((unsigned short)port);
+        if (connect(sock, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) < 0)
+            die_with_wserror("connect() failed");
 
-    //connect
-    memset(&serveraddr, 0, sizeof(serveraddr));
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = *((unsigned long*)ipadd->h_addr);
-    serveraddr.sin_port = htons((unsigned short)port);
-    if (connect(sock, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) < 0)
-        die_with_wserror("connect() failed");
+        //send request
+        if (send(sock, request.c_str(), request.length(), 0) != request.length())
+            die_with_wserror("send() sent a different number of bytes than expected");
 
-    //send request
-    if (send(sock, request.c_str(), request.length(), 0) != request.length())
-        die_with_wserror("send() sent a different number of bytes than expected");
+        //get response
+        response = "";
+        resp_leng = BUFFERSIZE;
+        while (resp_leng == BUFFERSIZE)
+        {
+            resp_leng = recv(sock, (char*)&buffer, BUFFERSIZE, 0);
+            if (resp_leng > 0)
+                response += string(buffer).substr(0, resp_leng);
+            //note: download lag is not handled in this code
+        }
 
-    //get response
-    response = "";
-    resp_leng = BUFFERSIZE;
-    while (resp_leng == BUFFERSIZE)
-    {
-        resp_leng = recv(sock, (char*)&buffer, BUFFERSIZE, 0);
-        if (resp_leng > 0)
-            response += string(buffer).substr(0, resp_leng);
-        //note: download lag is not handled in this code
+        //disconnect
+        closesocket(sock);
+
+        //cleanup
+        WSACleanup();
+
+        return  response;
     }
-
-    //disconnect
-    closesocket(sock);
-
-    //cleanup
-    WSACleanup();
-
-    return  response;
+    else {
+        return "NO";
+    }
 }
 
 
 string HTTP_GET(string host, string path) {
+
     string request;
     string response;
     int resp_leng;
@@ -100,52 +106,56 @@ string HTTP_GET(string host, string path) {
     std::stringstream ss;
 
     std::stringstream request2;
+    if (InternetCheckConnection("http://www.google.com", FLAG_ICC_FORCE_CONNECTION, 0)) {
+        request2 << "GET " << path << " HTTP/1.1" << endl;
+        request2 << "User-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)" << endl;
+        //request2 << "" << endl;
+        request2 << "Host: " << host << endl;
 
-    request2 << "GET " << path << " HTTP/1.1" << endl;
-    request2 << "User-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)" << endl;
-    //request2 << "" << endl;
-    request2 << "Host: " << host << endl;
+        request2 << "Connection: close" << endl;
+        request2 << endl;
+        request = request2.str();
+        //init winsock
+        if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0)
+            die_with_wserror("WSAStartup() failed");
+        //open socket
+        if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            die_with_wserror("socket() failed");
 
-    request2 << "Connection: close" << endl;
-    request2 << endl;
-    request = request2.str();
-    //init winsock
-    if (WSAStartup(MAKEWORD(2, 0), &wsaData) != 0)
-        die_with_wserror("WSAStartup() failed");
-    //open socket
-    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-        die_with_wserror("socket() failed");
+        //connect
+        memset(&serveraddr, 0, sizeof(serveraddr));
+        serveraddr.sin_family = AF_INET;
+        serveraddr.sin_addr.s_addr = *((unsigned long*)ipadd->h_addr);
+        serveraddr.sin_port = htons((unsigned short)port);
+        if (connect(sock, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) < 0)
+            die_with_wserror("connect() failed");
 
-    //connect
-    memset(&serveraddr, 0, sizeof(serveraddr));
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = *((unsigned long*)ipadd->h_addr);
-    serveraddr.sin_port = htons((unsigned short)port);
-    if (connect(sock, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) < 0)
-        die_with_wserror("connect() failed");
+        //send request
+        if (send(sock, request.c_str(), request.length(), 0) != request.length())
+            die_with_wserror("send() sent a different number of bytes than expected");
 
-    //send request
-    if (send(sock, request.c_str(), request.length(), 0) != request.length())
-        die_with_wserror("send() sent a different number of bytes than expected");
+        //get response
+        response = "";
+        resp_leng = BUFFERSIZE;
+        while (resp_leng == BUFFERSIZE)
+        {
+            resp_leng = recv(sock, (char*)&buffer, BUFFERSIZE, 0);
+            if (resp_leng > 0)
+                response += string(buffer).substr(0, resp_leng);
+            //note: download lag is not handled in this code
+        }
 
-    //get response
-    response = "";
-    resp_leng = BUFFERSIZE;
-    while (resp_leng == BUFFERSIZE)
-    {
-        resp_leng = recv(sock, (char*)&buffer, BUFFERSIZE, 0);
-        if (resp_leng > 0)
-            response += string(buffer).substr(0, resp_leng);
-        //note: download lag is not handled in this code
+        //disconnect
+        closesocket(sock);
+
+        //cleanup
+        WSACleanup();
+
+        return response.substr(response.find("\r\n\r\n"));
     }
-
-    //disconnect
-    closesocket(sock);
-
-    //cleanup
-    WSACleanup();
-
-    return response.substr(response.find("\r\n\r\n"));
+    else {
+        return "NO";
+    }
 }
 
 
