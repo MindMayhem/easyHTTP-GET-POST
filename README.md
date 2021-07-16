@@ -9,7 +9,7 @@ Example - *HTTP_GET("ip-api.com","/json")*
 return: {"status":"success", blablabla}
 
 # Using POST
-***HTTP_POST(domain, /requesturl, data)*** - will return respone of GET request in std::string format without headers
+***HTTP_POST(domain, /requesturl, data)*** - will return respone of POST request in std::string format without headers
 
 There's no example because i dont have webserver at the moment, just trust me, it works <3
 
